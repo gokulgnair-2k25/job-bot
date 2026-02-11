@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
 import smtplib
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -18,19 +19,49 @@ EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
 BASE_URL = "https://infopark.in"
 
-KEYWORDS = ["Developer", "Data Analyst", "Python", "AI"]
-MAX_PER_KEYWORD = 2  # keep small for free tier
+KEYWORDS = [
+    # AI & ML
+    "AI",
+    "Artificial Intelligence",
+    "Machine Learning",
+    
+    "Data ",
+
+
+    # Developer Roles
+    "Developer",
+    "Software Developer",
+    "Software Engineer",
+    "Full Stack",
+    "Backend",
+    "Frontend",
+
+    # Tech Stack
+    "Python",
+    
+    "Node",
+    ".NET",
+    "Dotnet",
+    "React",
+    
+    
+    
+
+   
+]
+
 
 
 # =============================
-# 1️⃣ FETCH JOB LINKS
+# 1️⃣ FETCH RECENT JOBS (LAST 1 DAY)
 # =============================
 
-def fetch_jobs():
-    job_links = set()
+def fetch_recent_jobs():
+    recent_jobs = []
+    today = datetime.now().date()
+    one_day_ago = today - timedelta(days=1)
 
     for keyword in KEYWORDS:
         search_term = urllib.parse.quote(keyword)
@@ -40,26 +71,57 @@ def fetch_jobs():
         r = requests.get(url, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
 
-        links = soup.select("a[href*='/company-jobs/']")
+        rows = soup.select("table tbody tr")
 
-        for a in links[:MAX_PER_KEYWORD]:
-            link = a["href"]
-            if not link.startswith("http"):
+        for row in rows:
+            cols = row.find_all("td")
+
+            if len(cols) < 5:
+                continue
+
+            date_str = cols[0].text.strip()
+            job_title = cols[1].text.strip()
+
+            try:
+                job_date = datetime.strptime(date_str, "%d-%m-%Y").date()
+            except:
+                continue
+
+            # Keep only today or yesterday
+            if job_date < one_day_ago:
+                continue
+
+            # Extract details link from last column
+            details_cell = cols[-1]
+            link_tag = details_cell.find("a")
+
+            if not link_tag:
+                continue
+
+            link = link_tag.get("href")
+            if link and not link.startswith("http"):
                 link = BASE_URL + link
-            job_links.add(link)
 
-    return list(job_links)
+            recent_jobs.append({
+                "title": job_title,
+                "date": date_str,
+                "link": link
+            })
+
+    print(f"Found {len(recent_jobs)} recent jobs.")
+    return recent_jobs
 
 
 # =============================
-# 2️⃣ EXTRACT DESCRIPTION
+# 2️⃣ EXTRACT JOB DESCRIPTION
 # =============================
 
 def extract_description(link):
     try:
         r = requests.get(link, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
-        return soup.get_text(separator="\n")[:2000]  # reduce token usage
+
+        return soup.get_text(separator="\n")[:1500]
 
     except Exception as e:
         print(f"Error fetching {link}: {e}")
@@ -67,10 +129,10 @@ def extract_description(link):
 
 
 # =============================
-# 3️⃣ SUMMARIZE WITH GROQ
+# 3️⃣ SINGLE GROQ SUMMARY
 # =============================
 
-def summarize(text):
+def summarize(all_jobs_text):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
@@ -82,7 +144,9 @@ def summarize(text):
             {
                 "role": "user",
                 "content": f"""
-Extract clearly in bullet points:
+Below are multiple job postings.
+
+For EACH job, extract clearly:
 
 - Company Name
 - Job Title
@@ -91,27 +155,22 @@ Extract clearly in bullet points:
 - Location
 - Salary (if mentioned)
 
-{text}
+Return clean bullet-point format per job.
+
+{all_jobs_text}
 """
             }
         ],
         "temperature": 0.2
     }
 
-    for attempt in range(3):
-        response = requests.post(GROQ_API_URL, headers=headers, json=data)
+    response = requests.post(GROQ_API_URL, headers=headers, json=data)
 
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
 
-        if response.status_code == 429:
-            print("Rate limited. Waiting 5 seconds...")
-            time.sleep(5)
-        else:
-            print("Groq Error:", response.text)
-            return "Failed to summarize."
-
-    return "Skipped due to repeated rate limit."
+    print("Groq Error:", response.text)
+    return "Failed to summarize."
 
 
 # =============================
@@ -142,30 +201,38 @@ def send_email(content):
 def main():
     print("🚀 Starting Job Bot...")
 
-    job_pages = fetch_jobs()
+    jobs = fetch_recent_jobs()
 
-    if not job_pages:
-        print("No job pages found.")
+    if not jobs:
+        print("No recent jobs found (last 1 day).")
         return
 
-    report = "🔥 DAILY INFOPARK JOB REPORT\n"
+    combined_text = ""
+    link_section = ""
 
-    for link in job_pages:
-        print(f"Processing: {link}")
-        desc = extract_description(link)
+    for job in jobs:
+        print(f"Processing: {job['title']} ({job['date']})")
 
+        desc = extract_description(job["link"])
         if not desc:
             continue
 
-        summary = summarize(desc)
+        combined_text += f"\n\nJOB TITLE: {job['title']}\nPOSTED: {job['date']}\n{desc}"
 
-        report += "\n==============================\n"
-        report += f"LINK: {link}\n{summary}\n"
+        link_section += f"\n🔗 {job['title']} ({job['date']})\n{job['link']}\n"
 
-        time.sleep(3)  # delay between calls
+    # Single Groq API call
+    summary = summarize(combined_text)
+
+    report = "🔥 DAILY INFOPARK JOB REPORT (Last 1 Day)\n"
+    report += "\n==============================\n"
+    report += summary
+    report += "\n\n==============================\n"
+    report += "📎 JOB LINKS\n"
+    report += link_section
 
     send_email(report)
-    print("✅ Script completed.")
+    print("✅ Script completed successfully!")
 
 
 if __name__ == "__main__":
