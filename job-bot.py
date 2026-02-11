@@ -59,57 +59,74 @@ KEYWORDS = [
 # =============================
 
 def fetch_recent_jobs():
-    recent_jobs = []
+    recent_jobs = {}
     today = datetime.now().date()
     one_day_ago = today - timedelta(days=1)
 
     for keyword in KEYWORDS:
-        search_term = urllib.parse.quote(keyword)
-        url = f"{BASE_URL}/companies/job-search?search={search_term}"
+        page = 1
 
-        print(f"Searching for: {keyword}")
-        r = requests.get(url, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
+        while True:
+            search_term = urllib.parse.quote(keyword)
+            url = f"{BASE_URL}/companies/job-search?search={search_term}&page={page}"
 
-        rows = soup.select("table tbody tr")
+            print(f"Searching '{keyword}' - Page {page}")
 
-        for row in rows:
-            cols = row.find_all("td")
+            r = requests.get(url, timeout=15)
+            soup = BeautifulSoup(r.text, "html.parser")
 
-            if len(cols) < 5:
-                continue
+            rows = soup.select("table tbody tr")
 
-            date_str = cols[0].text.strip()
-            job_title = cols[1].text.strip()
+            if not rows:
+                break  # No more pages
 
-            try:
-                job_date = datetime.strptime(date_str, "%d-%m-%Y").date()
-            except:
-                continue
+            page_has_recent_job = False
 
-            # Keep only today or yesterday
-            if job_date < one_day_ago:
-                continue
+            for row in rows:
+                cols = row.find_all("td")
 
-            # Extract details link from last column
-            details_cell = cols[-1]
-            link_tag = details_cell.find("a")
+                if len(cols) < 5:
+                    continue
 
-            if not link_tag:
-                continue
+                date_str = cols[0].text.strip()
+                job_title = cols[1].text.strip()
 
-            link = link_tag.get("href")
-            if link and not link.startswith("http"):
-                link = BASE_URL + link
+                try:
+                    job_date = datetime.strptime(date_str, "%d-%m-%Y").date()
+                except:
+                    continue
 
-            recent_jobs.append({
-                "title": job_title,
-                "date": date_str,
-                "link": link
-            })
+                # Only keep last 1 day jobs
+                if job_date < one_day_ago:
+                    continue
+
+                page_has_recent_job = True
+
+                # Get details link
+                details_cell = cols[-1]
+                link_tag = details_cell.find("a")
+
+                if not link_tag:
+                    continue
+
+                link = link_tag.get("href")
+                if link and not link.startswith("http"):
+                    link = BASE_URL + link
+
+                recent_jobs[link] = {
+                    "title": job_title,
+                    "date": date_str,
+                    "link": link
+                }
+
+            # If this page had no recent jobs → stop scanning more pages
+            if not page_has_recent_job:
+                break
+
+            page += 1
 
     print(f"Found {len(recent_jobs)} recent jobs.")
-    return recent_jobs
+    return list(recent_jobs.values())
 
 
 # =============================
