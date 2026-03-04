@@ -193,23 +193,29 @@ Return clean bullet-point format per job.
 # =============================
 # 4️⃣ SEND EMAIL
 # =============================
-
+RECIPIENTS = [
+    EMAIL_USER,
+    "aswathiolakkil@gmail.com",
+    "gokulgnair2003@gmail.com"
+]
 def send_email(content):
     try:
         msg = MIMEText(content)
+
         msg["Subject"] = "🔥 Daily Infopark Job Report"
         msg["From"] = EMAIL_USER
-        msg["To"] = EMAIL_USER
+        msg["To"] = ", ".join(RECIPIENTS)  # show recipients in email
 
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(EMAIL_USER, EMAIL_PASSWORD)
-            server.send_message(msg)
+
+            # Send to all recipients
+            server.sendmail(EMAIL_USER, RECIPIENTS, msg.as_string())
 
         print("📧 Email sent successfully!")
 
     except Exception as e:
         print("Email Error:", e)
-
 
 # =============================
 # MAIN
