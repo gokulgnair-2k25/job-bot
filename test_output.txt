@@ -1,0 +1,30 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.8, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\Gokul\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Gokul\Documents\1\job-bot
+collecting ... collected 22 items
+
+test_job_bot.py::TestRecipients::test_recipients_parsed_from_env PASSED  [  4%]
+test_job_bot.py::TestRecipients::test_recipients_strips_whitespace PASSED [  9%]
+test_job_bot.py::TestSummarize::test_groq_api_error_returns_safe_string PASSED [ 13%]
+test_job_bot.py::TestSummarize::test_text_truncated_when_over_budget PASSED [ 18%]
+test_job_bot.py::TestExtractDescription::test_returns_none_on_exception PASSED [ 22%]
+test_job_bot.py::TestBuildReport::test_html_contains_anchor_tags PASSED  [ 27%]
+test_job_bot.py::TestBuildReport::test_plain_contains_job_titles PASSED  [ 31%]
+test_job_bot.py::TestBuildReport::test_plain_contains_links PASSED       [ 36%]
+test_job_bot.py::TestBuildReport::test_subject_contains_count PASSED     [ 40%]
+test_job_bot.py::TestSendEmail::test_email_sent_when_not_dry_run PASSED  [ 45%]
+test_job_bot.py::TestSendEmail::test_no_email_sent_in_dry_run PASSED     [ 50%]
+test_job_bot.py::TestExperienceFilter::test_exactly_one_year_included PASSED [ 54%]
+test_job_bot.py::TestExperienceFilter::test_five_years PASSED            [ 59%]
+test_job_bot.py::TestExperienceFilter::test_fresher_keyword PASSED       [ 63%]
+test_job_bot.py::TestExperienceFilter::test_minimum_three_years PASSED   [ 68%]
+test_job_bot.py::TestExperienceFilter::test_no_experience PASSED         [ 72%]
+test_job_bot.py::TestExperienceFilter::test_no_experience_mention_included PASSED [ 77%]
+test_job_bot.py::TestExperienceFilter::test_one_year_plus PASSED         [ 81%]
+test_job_bot.py::TestExperienceFilter::test_range_0_to_1 PASSED          [ 86%]
+test_job_bot.py::TestExperienceFilter::test_range_1_to_2 PASSED          [ 90%]
+test_job_bot.py::TestExperienceFilter::test_range_2_to_3_filtered PASSED [ 95%]
+test_job_bot.py::TestExperienceFilter::test_six_months PASSED            [100%]
+
+============================= 22 passed in 2.37s ==============================
